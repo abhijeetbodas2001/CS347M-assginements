@@ -3,8 +3,11 @@
 #include "user.h"
 #include "fcntl.h"
 
+
 int main(void)
 {
-  printf(1, "This is printed from my program!\n");
+  int virt = numvp(), phy = numpp();
+  printf(2, "%d\n", virt);
+  printf(2, "%d\n", phy);
   exit();
 }

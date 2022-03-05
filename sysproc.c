@@ -7,6 +7,15 @@
 #include "mmu.h"
 #include "proc.h"
 
+int sys_numvp(void) {
+    return 1;
+}
+
+int sys_numpp(void) {
+    return 2;
+}
+
+
 int
 sys_fork(void)
 {
