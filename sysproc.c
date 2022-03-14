@@ -8,7 +8,9 @@
 #include "proc.h"
 
 int sys_numvp(void) {
-    return 1;
+    // Round up the size in bytes to nearest multiple of PGSIZE,
+    // then return the number of pages
+    return PGROUNDUP(myproc()->sz)/PGSIZE;
 }
 
 int sys_numpp(void) {
