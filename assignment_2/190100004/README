@@ -1,0 +1,334 @@
+This folder contains the files that I modified from the given XV6 code
+for the assignment.
+Run `make && make qemu`. In the console that appears, type `myprogram`,
+which will run `myprogram.c` which I have written.
+
+I have created `mmap` to return a `char*` similar to `sbrk`, and not
+int, which the test program expects.
+
+What follows is a plain-text version of the diff which was generated
+containing my modifications.
+
+
+diff --git a/.gitignore b/.gitignore
+index 3e2c9de..6be1029 100755
+--- a/.gitignore
++++ b/.gitignore
+@@ -14,3 +14,6 @@ kernel
+ kernelmemfs
+ mkfs
+ .gdbinit
++*.swp
++tags
++.vscode
+diff --git a/Makefile b/Makefile
+index 57469cb..2af3f6c 100644
+--- a/Makefile
++++ b/Makefile
+@@ -182,6 +182,7 @@ UPROGS=\
+ 	_wc\
+ 	_zombie\
+ 	_testcase\
++	_myprogram\
+ 
+ 
+ fs.img: mkfs README $(UPROGS)
+@@ -252,7 +253,7 @@ qemu-nox-gdb: fs.img xv6.img .gdbinit
+ EXTRA=\
+ 	mkfs.c ulib.c user.h cat.c echo.c forktest.c grep.c kill.c\
+ 	ln.c ls.c mkdir.c rm.c stressfs.c usertests.c wc.c zombie.c\
+-	printf.c umalloc.c _testcase.c \
++	printf.c umalloc.c _testcase.c _myprogram.c\
+ 	README dot-bochsrc *.pl toc.* runoff runoff1 runoff.list\
+ 	.gdbinit.tmpl gdbutil\
+ 
+diff --git a/defs.h b/defs.h
+index 82fb982..f9224df 100755
+--- a/defs.h
++++ b/defs.h
+@@ -185,6 +185,8 @@ void            switchuvm(struct proc*);
+ void            switchkvm(void);
+ int             copyout(pde_t*, uint, void*, uint);
+ void            clearpteu(pde_t *pgdir, char *uva);
++pte_t*          walkpgdir(pde_t *pgdir, const void *va, int alloc);
++int             mappages(pde_t *pgdir, void *va, uint size, uint pa, int perm);
+ 
+ // number of elements in fixed-size array
+ #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
+diff --git a/myprogram.c b/myprogram.c
+new file mode 100644
+index 0000000..869aaa1
+--- /dev/null
++++ b/myprogram.c
+@@ -0,0 +1,56 @@
++#include "types.h"
++#include "stat.h"
++#include "user.h"
++#include "fcntl.h"
++
++int main(void) {
++  char *ret;
++  printf(1, "Start: memory usage in pages: virtual: %d, physical %d\n", numvp(), numpp());
++
++  ret = mmap(-1234);
++  if (ret == 0)
++    printf(1, "mmap failed for wrong inputs\n");
++  else
++    exit();
++
++  ret = mmap(1234);
++  if (ret == 0)
++    printf(1, "mmap failed for wrong inputs\n");
++  else
++    exit();
++
++
++  ret = mmap(4096);
++
++  if (ret == 0)
++    printf(1, "mmap failed\n");
++  else {
++    printf(1, "After mmap one page: memory usage in pages: virtual: %d, physical %d\n", numvp(), numpp());
++
++    char *addr = (char *)ret;
++
++    addr[0] = 'a';
++
++    printf(1, "After access of one page: memory usage in pages: virtual: %d, physical %d\n", numvp(), numpp());
++  }
++
++  ret = mmap(8192);
++
++  if (ret == 0)
++    printf(1, "mmap failed\n");
++  else {
++    printf(1, "After mmap two pages: memory usage in pages: virtual: %d, physical %d\n", numvp(), numpp());
++
++    char *addr = (char *)ret;
++
++    addr[0] = 'a';
++
++    printf(1, "After access of first page: memory usage in pages: virtual: %d, physical %d\n", numvp(), numpp());
++    addr[8000] = 'a';
++
++    printf(1, "After access of second page: memory usage in pages: virtual: %d, physical %d\n", numvp(), numpp());
++  }
++
++  exit();
++
++}
+\ No newline at end of file
+diff --git a/syscall.c b/syscall.c
+index ee85261..7dfeeb7 100755
+--- a/syscall.c
++++ b/syscall.c
+@@ -97,12 +97,15 @@ extern int sys_mknod(void);
+ extern int sys_open(void);
+ extern int sys_pipe(void);
+ extern int sys_read(void);
++extern int sys_mmap(void);
+ extern int sys_sbrk(void);
+ extern int sys_sleep(void);
+ extern int sys_unlink(void);
+ extern int sys_wait(void);
+ extern int sys_write(void);
+ extern int sys_uptime(void);
++extern int sys_numvp(void);
++extern int sys_numpp(void);
+ 
+ static int (*syscalls[])(void) = {
+ [SYS_fork]    sys_fork,
+@@ -116,6 +119,7 @@ static int (*syscalls[])(void) = {
+ [SYS_chdir]   sys_chdir,
+ [SYS_dup]     sys_dup,
+ [SYS_getpid]  sys_getpid,
++[SYS_mmap]    sys_mmap,
+ [SYS_sbrk]    sys_sbrk,
+ [SYS_sleep]   sys_sleep,
+ [SYS_uptime]  sys_uptime,
+@@ -126,6 +130,8 @@ static int (*syscalls[])(void) = {
+ [SYS_link]    sys_link,
+ [SYS_mkdir]   sys_mkdir,
+ [SYS_close]   sys_close,
++[SYS_numvp]   sys_numvp,
++[SYS_numpp]   sys_numpp,
+ };
+ 
+ void
+diff --git a/syscall.h b/syscall.h
+index bc5f356..cf94a1a 100755
+--- a/syscall.h
++++ b/syscall.h
+@@ -10,6 +10,7 @@
+ #define SYS_chdir   9
+ #define SYS_dup    10
+ #define SYS_getpid 11
++#define SYS_mmap   24
+ #define SYS_sbrk   12
+ #define SYS_sleep  13
+ #define SYS_uptime 14
+@@ -20,3 +21,5 @@
+ #define SYS_link   19
+ #define SYS_mkdir  20
+ #define SYS_close  21
++#define SYS_numvp  22
++#define SYS_numpp  23
+diff --git a/sysproc.c b/sysproc.c
+index 0686d29..48e4c85 100755
+--- a/sysproc.c
++++ b/sysproc.c
+@@ -7,6 +7,30 @@
+ #include "mmu.h"
+ #include "proc.h"
+ 
++int sys_numvp(void) {
++    // Round up the size in bytes to nearest multiple of PGSIZE,
++    // then return the number of pages
++    return PGROUNDUP(myproc()->sz)/PGSIZE;
++}
++
++int sys_numpp(void) {
++    pde_t* pgdir = myproc()->pgdir;
++    int num_pp = 0;   // counter for number of physical pages
++    pte_t* pte;
++
++    for (uint i = 0; i < KERNBASE; i = i + PGSIZE) {
++      pte = walkpgdir(pgdir, (int *)i, 0);
++      if (pte) {  // Physical address is valid
++        if (*pte & PTE_P) { // Page is present
++          num_pp++;
++        }
++      }
++    }
++
++    return num_pp;
++}
++
++
+ int
+ sys_fork(void)
+ {
+@@ -42,6 +66,24 @@ sys_getpid(void)
+   return myproc()->pid;
+ }
+ 
++int
++sys_mmap(void) {
++  int addr = myproc()->sz;
++
++  // Number of bytes
++  int n;
++  argint(0, &n);  // Store the syscall argument in n
++
++  // Handle invalid aguments
++  if (n < 0 || n%PGSIZE != 0) {
++    return 0;
++  }
++
++  myproc()->sz = myproc()->sz + n;
++
++  return addr;
++}
++
+ int
+ sys_sbrk(void)
+ {
+diff --git a/trap.c b/trap.c
+index 41c66eb..5e1fc2c 100755
+--- a/trap.c
++++ b/trap.c
+@@ -14,6 +14,8 @@ extern uint vectors[];  // in vectors.S: array of 256 entry pointers
+ struct spinlock tickslock;
+ uint ticks;
+ 
++char *mem;
++
+ void
+ tvinit(void)
+ {
+@@ -77,6 +79,23 @@ trap(struct trapframe *tf)
+             cpuid(), tf->cs, tf->eip);
+     lapiceoi();
+     break;
++  case T_PGFLT:
++    mem = kalloc();
++    if(mem == 0){
++      cprintf("Physical memory has run out!\n");
++      return;
++    }
++    memset(mem, 0, PGSIZE);
++
++    // Map the virtual address where the fault occured to the newly created physical memory
++    if(mappages(myproc()->pgdir, (char*)PGROUNDDOWN(rcr2()), PGSIZE, V2P(mem), PTE_W|PTE_U) < 0){
++      cprintf("Virtual memory has run out!\n");
++      kfree(mem);
++      return;
++    }
++
++    lapiceoi();
++    break;
+ 
+   //PAGEBREAK: 13
+   default:
+diff --git a/types.h b/types.h
+index e4adf64..b30d57c 100755
+--- a/types.h
++++ b/types.h
+@@ -2,3 +2,4 @@ typedef unsigned int   uint;
+ typedef unsigned short ushort;
+ typedef unsigned char  uchar;
+ typedef uint pde_t;
++typedef uint pte_t;
+diff --git a/user.h b/user.h
+index 4f99c52..52c4d4e 100755
+--- a/user.h
++++ b/user.h
+@@ -20,9 +20,12 @@ int mkdir(const char*);
+ int chdir(const char*);
+ int dup(int);
+ int getpid(void);
++char* mmap(int);
+ char* sbrk(int);
+ int sleep(int);
+ int uptime(void);
++int numvp(void);
++int numpp(void);
+ 
+ // ulib.c
+ int stat(const char*, struct stat*);
+diff --git a/usys.S b/usys.S
+index 8bfd8a1..576d41f 100755
+--- a/usys.S
++++ b/usys.S
+@@ -26,6 +26,9 @@ SYSCALL(mkdir)
+ SYSCALL(chdir)
+ SYSCALL(dup)
+ SYSCALL(getpid)
++SYSCALL(mmap)
+ SYSCALL(sbrk)
+ SYSCALL(sleep)
+ SYSCALL(uptime)
++SYSCALL(numvp)
++SYSCALL(numpp)
+diff --git a/vm.c b/vm.c
+index 7134cff..89b7ad2 100755
+--- a/vm.c
++++ b/vm.c
+@@ -32,7 +32,7 @@ seginit(void)
+ // Return the address of the PTE in page table pgdir
+ // that corresponds to virtual address va.  If alloc!=0,
+ // create any required page table pages.
+-static pte_t *
++pte_t *
+ walkpgdir(pde_t *pgdir, const void *va, int alloc)
+ {
+   pde_t *pde;
+@@ -57,7 +57,7 @@ walkpgdir(pde_t *pgdir, const void *va, int alloc)
+ // Create PTEs for virtual addresses starting at va that refer to
+ // physical addresses starting at pa. va and size might not
+ // be page-aligned.
+-static int
++int
+ mappages(pde_t *pgdir, void *va, uint size, uint pa, int perm)
+ {
+   char *a, *last;
