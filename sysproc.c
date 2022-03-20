@@ -14,7 +14,20 @@ int sys_numvp(void) {
 }
 
 int sys_numpp(void) {
-    return 2;
+    pde_t* pgdir = myproc()->pgdir;
+    int num_pp = 0;   // counter for number of physical pages
+    pte_t* pte;
+
+    for (uint i = 0; i < KERNBASE; i = i + PGSIZE) {
+      pte = walkpgdir(pgdir, (int *)i, 0);
+      if (pte) {  // Physical address is valid
+        if (*pte & PTE_P) { // Page is present
+          num_pp++;
+        }
+      }
+    }
+
+    return num_pp;
 }
 
 
