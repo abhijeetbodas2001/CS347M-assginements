@@ -2,21 +2,55 @@
 #include "stat.h"
 #include "user.h"
 #include "fcntl.h"
-#include "mmu.h"
 
-int main(void)
-{
-  void* i = malloc(PGSIZE*10);
-  printf(1, "%d\n", i);
+int main(void) {
+  char *ret;
+  printf(1, "Start: memory usage in pages: virtual: %d, physical %d\n", numvp(), numpp());
 
-  printf(1, "Intial values:\n    Virtual pages = %d\n    Physical pages = %d\n", numvp(), numpp());
+  ret = mmap(-1234);
+  if (ret == 0)
+    printf(1, "mmap failed for wrong inputs\n");
+  else
+    exit();
 
-  char* addr = mmap(PGSIZE);
-  printf(1, "After mmap called:\n    Virtual pages = %d\n    Physical pages = %d\n", numvp(), numpp());
+  ret = mmap(1234);
+  if (ret == 0)
+    printf(1, "mmap failed for wrong inputs\n");
+  else
+    exit();
 
-  // Access the newly alloted memory, should result in page fault
-  *(addr+PGSIZE) = 1;
 
-  printf(1, "After new memory is accessed:\n    Virtual pages = %d\n    Physical pages = %d\n", numvp(), numpp());
+  ret = mmap(4096);
+
+  if (ret == 0)
+    printf(1, "mmap failed\n");
+  else {
+    printf(1, "After mmap one page: memory usage in pages: virtual: %d, physical %d\n", numvp(), numpp());
+
+    char *addr = (char *)ret;
+
+    addr[0] = 'a';
+
+    printf(1, "After access of one page: memory usage in pages: virtual: %d, physical %d\n", numvp(), numpp());
+  }
+
+  ret = mmap(8192);
+
+  if (ret == 0)
+    printf(1, "mmap failed\n");
+  else {
+    printf(1, "After mmap two pages: memory usage in pages: virtual: %d, physical %d\n", numvp(), numpp());
+
+    char *addr = (char *)ret;
+
+    addr[0] = 'a';
+
+    printf(1, "After access of first page: memory usage in pages: virtual: %d, physical %d\n", numvp(), numpp());
+    addr[8000] = 'a';
+
+    printf(1, "After access of second page: memory usage in pages: virtual: %d, physical %d\n", numvp(), numpp());
+  }
+
   exit();
+
 }
