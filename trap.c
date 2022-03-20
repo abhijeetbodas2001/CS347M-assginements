@@ -14,6 +14,8 @@ extern uint vectors[];  // in vectors.S: array of 256 entry pointers
 struct spinlock tickslock;
 uint ticks;
 
+char *mem;
+
 void
 tvinit(void)
 {
@@ -78,7 +80,20 @@ trap(struct trapframe *tf)
     lapiceoi();
     break;
   case T_PGFLT:
-    cprintf("PAGE FAULT!!!\n");
+    mem = kalloc();
+    if(mem == 0){
+      cprintf("Physical memory has run out!\n");
+      return;
+    }
+    memset(mem, 0, PGSIZE);
+
+    // Map the virtual address where the fault occured to the newly created physical memory
+    if(mappages(myproc()->pgdir, (char*)PGROUNDDOWN(rcr2()), PGSIZE, V2P(mem), PTE_W|PTE_U) < 0){
+      cprintf("Virtual memory has run out!\n");
+      kfree(mem);
+      return;
+    }
+
     lapiceoi();
     break;
 

@@ -9,16 +9,14 @@ int main(void)
   void* i = malloc(PGSIZE*10);
   printf(1, "%d\n", i);
 
-  printf(2, "Initial virtual pages: %d\n", numvp());
-  printf(2, "Initial physical pages: %d\n", numpp());
+  printf(1, "Intial values:\n    Virtual pages = %d\n    Physical pages = %d\n", numvp(), numpp());
 
   char* addr = mmap(PGSIZE);
-  printf(1, "Pages added after: %d\n", addr);
-
-  printf(2, "Final virtual pages: %d\n", numvp());
-  printf(2, "Final physical pages: %d\n", numpp());
+  printf(1, "After mmap called:\n    Virtual pages = %d\n    Physical pages = %d\n", numvp(), numpp());
 
   // Access the newly alloted memory, should result in page fault
-  printf(1, "%d", *(addr+PGSIZE));
+  *(addr+PGSIZE) = 1;
+
+  printf(1, "After new memory is accessed:\n    Virtual pages = %d\n    Physical pages = %d\n", numvp(), numpp());
   exit();
 }
