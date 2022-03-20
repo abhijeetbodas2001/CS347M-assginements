@@ -67,6 +67,24 @@ sys_getpid(void)
 }
 
 int
+sys_mmap(void) {
+  int addr = myproc()->sz;
+
+  // Number of bytes
+  int n;
+  argint(0, &n);  // Store the syscall argument in n
+
+  // Handle invalid aguments
+  if (n < 0 || n%PGSIZE != 0) {
+    return 0;
+  }
+
+  myproc()->sz = myproc()->sz + n;
+
+  return addr;
+}
+
+int
 sys_sbrk(void)
 {
   int addr;
