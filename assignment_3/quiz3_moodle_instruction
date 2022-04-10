@@ -1,0 +1,19 @@
+In this take home exam, you will come up with your own synchronization problem and present its solution. You may look through the practice problems or the Little Book of Semaphores for inspiration. You can pick one of the existing problems, or you can come up with your own toy/real-life problem. Your problem should have at least 2 agents, and should require some synchronization between them that is more complex than "T2 should run before/after T1". Practice problems 24 to 27 are good examples of the kind of problems you should present.
+
+Note: You cannot use the simple producer-consumer problem, or the batched processing problem discussed in class. You may also not use the reader-writer locks problem from the practice problems. 
+
+You will submit a set of PDF (or any other format) slides for this assignment, and you will use these slides to present during a viva for evaluation. Your presentation should contain the following:
+
+* A description of the problem, the various agents involved and the synchronization requirements
+
+* Correct solution to your problem using condition variables. 
+
+* Correct solution to your problem using semaphores. 
+
+* One incorrect solution using condition variables.
+
+* One incorrect solution using semaphores.
+
+* Note that the incorrect solution should not just be a simply silly mistake in your solution, but should be a synchronization error due to incorrect use of a synchronization primitive that results in a deadlock of the threads.
+
+* It is not enough to simply show the correct/incorrect solution on a slide. For each of the correct/incorrect solutions above, you must also explain the pseudocode in multiple slides and argue for its correctness/incorrectness. You must explain why it is correct/incorrect by showing at least two different interleavings of the involved threads/agents and arguing that your solution works as expected across all possible interleavings. For example, you must explain what happens when one thread runs first, or when other thread runs first, and so on. You must clearly point out where each thread sleeps for synchronization and how it is woken up (or not woken up in the deadlock solution).
