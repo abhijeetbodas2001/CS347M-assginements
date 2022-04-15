@@ -17,9 +17,11 @@ void zem_down(zem_t *s) {
     if (s->n < 0) {
         pthread_cond_wait(&s->cv, &s->m);
     }
+    pthread_mutex_unlock(&s->m);
 }
 
 void zem_up(zem_t *s) {
+    pthread_mutex_lock(&s->m);
     s->n++;
     pthread_cond_signal(&s->cv);
     pthread_mutex_unlock(&s->m);
