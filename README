@@ -1,0 +1,8 @@
+Contains code that I wrote when doing the CS347 (Operating systems)
+minor course at IIT Bombay during Jan-Apr 2022.
+
+Assignment 2 contains code for the XV6 operating system (given as part
+of the assignment problem statement), which is distributed under the
+MIT license. The extra code in this repository (written by me) is also
+covered under the same license.
+
